@@ -18,14 +18,14 @@ pps = PPS(
     debug=False
 )
 
-v = Gauge('voltage_volts', 'Current output voltage')
-c = Gauge('current_amps', 'Current output current')
-vm = Gauge('voltage_max_volts', 'Maximum output voltage')
-cm = Gauge('current_max_amps', 'Maximum output current')
-vp = Gauge('voltage_preset_volts', 'Preset output voltage')
-cp = Gauge('current_preset_amps', 'Preset output current')
-ccm = Gauge('constant_current_mode', 'Power supply is in Constant Current mode')
-cvm = Gauge('constant_voltage_mode', 'Power supply is in Constant Voltage mode')
+v = Gauge('voltcraft_output_voltage_volts', 'Voltcraft output voltage')
+c = Gauge('voltcraft_output_current_amps', 'Voltcraft output current')
+vm = Gauge('voltcraft_maximum_voltage_volts', 'Voltcraft maximum output voltage')
+cm = Gauge('voltcraft_maximum_current_amps', 'Voltcraft maximum output current')
+vp = Gauge('voltcraft_preset_voltage_volts', 'Voltcraft preset output voltage')
+cp = Gauge('voltcraft_preset_current_amps', 'Voltcraft preset output current')
+ccm = Gauge('voltcraft_mode_constant_current', 'Voltcraft power supply is in Constant Current mode')
+cvm = Gauge('voltcraft_mode_constant_voltage', 'Voltcraft power supply is in Constant Voltage mode')
 
 
 def process_request():
