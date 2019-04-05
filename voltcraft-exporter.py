@@ -80,10 +80,10 @@ def process_request():
     # do we need to adjust presets?
     if voltage_preset != config['voltage_preset']:
         logger.info("Changing voltage preset from %s to %s" % (voltage_preset, config['voltage_preset']))
-        pps.voltage = config['voltage_preset']
+        pps.voltage(config['voltage_preset'])
     if current_preset != config['current_preset']:
         logger.info("Changing current preset from %s to %s" % (current_preset, config['current_preset']))
-        pps.current = config['current_preset']
+        pps.current(config['current_preset'])
 
     time.sleep(5)
 
