@@ -1,23 +1,106 @@
 from voltcraft.pps import PPS
-from prometheus_client import start_http_server, Summary, Gauge
-import random
+from prometheus_client import start_http_server, Gauge
 import time
 import logging
+import yaml
+import os
 
+# define default config
+default_config = {
+    'serialport': '/dev/ttyU0',
+    'webport': 8000,
+    'voltage_preset': 1,
+    'current_preset': 1,
+}
+
+# configure logging
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s %(levelname)s %(name)s:%(funcName)s():%(lineno)i:  %(message)s",
     datefmt='%Y-%m-%d %H:%M:%S %z',
 )
-
 logger = logging.getLogger("voltcraft-exporter.%s" % __name__)
 
+
+def check_config():
+    if os.stat(configfile).st_mtime > edittime:
+        logger.info("Config file updated since it was last read, re-reading...")
+        fileconf, edittime = read_config()
+        config = default_config
+        config.update(fileconf)
+        logger.debug("Running with config %s" % config)
+        logger.debug("Configfile voltcraft-exporter.yml last updated %s" % edittime)
+
+def read_config():
+    try:
+        with open("voltcraft-exporter.yml") as f:
+            edittime = os.stat("voltcraft-exporter.yml").st_mtime
+            return (yaml.safe_load(f.read()), edittime)
+    except FileNotFoundError:
+        return ({}, 0)
+
+def process_request():
+    # do we need to read config again?
+    check_config()
+
+    # get model
+    model.labels(model=pps._MODEL).set(1)
+
+    # get present output
+    voltage_output, current_output, mode = pps.reading()
+    v.set(voltage_output)
+    c.set(current_output)
+
+    # get charging mode
+    if mode == "CC":
+        ccm.set(1)
+        cvm.set(0)
+    elif mode == "CV":
+        ccm.set(0)
+        cvm.set(1)
+
+    # get maximum values
+    voltage_max, current_max = pps.limits()
+    vm.set(voltage_max)
+    cm.set(current_max)
+
+    # get preset values
+    voltage_preset, current_preset = pps.preset
+    vp.set(voltage_preset)
+    cp.set(current_preset)
+
+    # a bit out output for the console
+    logger.debug("Output voltage is %s V and preset voltage is %s A" % (voltage_output, voltage_preset))
+    logger.debug("Output current is %s V and preset current is %s A" % (current_output, current_preset))
+    logger.debug("Charging mode is %s" % mode)
+
+    # do we need to adjust presets?
+    if voltage_preset != config['voltage_preset']:
+        logger.info("Changing voltage preset from %s to %s" % (voltage_preset, config['voltage_preset']))
+        pps.voltage = config['voltage_preset']
+    if current_preset != config['current_preset']:
+        logger.info("Changing current preset from %s to %s" % (current_preset, config['current_preset']))
+        pps.current = config['current_preset']
+
+    time.sleep(5)
+
+# read config file
+fileconf, edittime = read_config()
+config = default_config
+config.update(fileconf)
+logger.debug("Running with config %s" % config)
+if edittime:
+    logger.debug("Configfile voltcraft-exporter.yml last updated %s" % edittime)
+
+# open serial connection
 pps = PPS(
-    port="/dev/ttyU0",
+    port=config['serialport'],
     reset=False,
     debug=False
 )
 
+# define metrics
+model = Gauge('voltcraft_model', 'Voltcraft model')
 v = Gauge('voltcraft_output_voltage_volts', 'Voltcraft output voltage')
 c = Gauge('voltcraft_output_current_amps', 'Voltcraft output current')
 vm = Gauge('voltcraft_maximum_voltage_volts', 'Voltcraft maximum output voltage')
@@ -27,33 +110,7 @@ cp = Gauge('voltcraft_preset_current_amps', 'Voltcraft preset output current')
 ccm = Gauge('voltcraft_mode_constant_current', 'Voltcraft power supply is in Constant Current mode')
 cvm = Gauge('voltcraft_mode_constant_voltage', 'Voltcraft power supply is in Constant Voltage mode')
 
-
-def process_request():
-    voltage_output, current_output, mode = pps.reading()
-    v.set(voltage_output)
-    c.set(current_output)
-    if mode == "CC":
-        ccm.set(1)
-        cvm.set(0)
-    elif mode == "CV":
-        ccm.set(0)
-        cvm.set(1)
-
-    voltage_max, current_max = pps.limits()
-    vm.set(voltage_max)
-    cm.set(current_max)
-
-    voltage_preset, current_preset = pps.preset
-    vp.set(voltage_preset)
-    cp.set(current_preset)
-
-    logger.debug("output voltage is %s preset voltage is %s" % (voltage_output, voltage_preset))
-    logger.debug("output current is %s preset current is %s" % (current_output, current_preset))
-    logger.debug("charging mode is %s" % mode)
-    time.sleep(5)
-
-
-start_http_server(8000)
+start_http_server(config['webport'])
 
 while True:
     process_request()

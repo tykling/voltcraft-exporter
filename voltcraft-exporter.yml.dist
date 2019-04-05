@@ -1,0 +1,6 @@
+---
+serialport: "/dev/ttyU0"
+voltage_preset: 1
+current_preset: 1
+#webport: 8000
+

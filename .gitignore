@@ -1,3 +1,6 @@
+# config
+voltcraft-exporter.yml
+
 # vim
 *.swp
 
