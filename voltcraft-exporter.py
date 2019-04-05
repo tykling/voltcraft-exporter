@@ -103,7 +103,7 @@ pps = PPS(
 )
 
 # define metrics
-model = Gauge('voltcraft_model', 'Voltcraft model')
+model = Gauge('voltcraft_model', 'Voltcraft model', ['model'])
 v = Gauge('voltcraft_output_voltage_volts', 'Voltcraft output voltage')
 c = Gauge('voltcraft_output_current_amps', 'Voltcraft output current')
 vm = Gauge('voltcraft_maximum_voltage_volts', 'Voltcraft maximum output voltage')
