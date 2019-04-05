@@ -23,6 +23,9 @@ logger = logging.getLogger("voltcraft-exporter.%s" % __name__)
 
 
 def check_config():
+    global edittime
+    global config
+    global default_config
     if os.stat("voltcraft-exporter.yml").st_mtime > edittime:
         logger.info("Config file updated since it was last read, re-reading...")
         fileconf, edittime = read_config()
