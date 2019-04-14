@@ -72,18 +72,38 @@ def process_request():
     vp.set(voltage_preset)
     cp.set(current_preset)
 
-    # a bit out output for the console
-    logger.debug("Output voltage is %s V and preset voltage is %s A" % (voltage_output, voltage_preset))
-    logger.debug("Output current is %s V and preset current is %s A" % (current_output, current_preset))
-    logger.debug("Charging mode is %s" % mode)
-
-    # do we need to adjust presets?
+    # do we need to adjust voltage preset?
     if voltage_preset != config['voltage_preset']:
         logger.info("Changing voltage preset from %s to %s" % (voltage_preset, config['voltage_preset']))
         pps.voltage(config['voltage_preset'])
-    if current_preset != config['current_preset']:
+
+    # init variable
+    voltage_level = "normal"
+
+    # are we below the low_voltage_limit?
+    if hasattr(config, 'low_voltage_limit') and voltage_output < config['low_voltage_limit']:
+        voltage_level = "low"
+        if hasattr(config, 'low_voltage_current_preset') and current_preset != config['low_voltage_current_preset']:
+            logger.info("We are under the low_voltage_limit of %sV - changing current preset from %s to %s" % (config['low_voltage_limit'], current_preset, config['low_voltage_current_preset']))
+            pps.current(config['low_voltage_current_preset'])
+
+    # are we above the high_voltage_limit?
+    if hasattr(config, 'high_voltage_limit') and voltage_output > config['high_voltage_limit']:
+        voltage_level = "high"
+        # do we need to adjust the current preset?
+        if hasattr(config, 'high_voltage_current_preset') and current_preset != config['high_voltage_current_preset']:
+            logger.info("We are over the high_voltage_limit of %sV - changing current preset from %s to %s" % (config['high_voltage_limit'], current_preset, config['high_voltage_current_preset']))
+            pps.current(config['high_voltage_current_preset'])
+
+    if voltage_level == "normal" and current_preset != config['current_preset']:
         logger.info("Changing current preset from %s to %s" % (current_preset, config['current_preset']))
         pps.current(config['current_preset'])
+
+    # a bit of output for the console
+    logger.debug("Output voltage is %s V and preset voltage is %s A" % (voltage_output, voltage_preset))
+    logger.debug("Output current is %s V and preset current is %s A" % (current_output, current_preset))
+    logger.debug("Charging mode is %s" % mode)
+    logger.debug("Voltage level is %s" % voltage_level)
 
     time.sleep(5)
 
