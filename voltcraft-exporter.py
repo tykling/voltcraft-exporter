@@ -81,17 +81,17 @@ def process_request():
     voltage_level = "normal"
 
     # are we below the low_voltage_limit?
-    if hasattr(config, 'low_voltage_limit') and voltage_output < config['low_voltage_limit']:
+    if 'low_voltage_limit' in config and voltage_output < config['low_voltage_limit']:
         voltage_level = "low"
-        if hasattr(config, 'low_voltage_current_preset') and current_preset != config['low_voltage_current_preset']:
+        if 'low_voltage_current_preset' in config and current_preset != config['low_voltage_current_preset']:
             logger.info("We are under the low_voltage_limit of %sV - changing current preset from %s to %s" % (config['low_voltage_limit'], current_preset, config['low_voltage_current_preset']))
             pps.current(config['low_voltage_current_preset'])
 
     # are we above the high_voltage_limit?
-    if hasattr(config, 'high_voltage_limit') and voltage_output > config['high_voltage_limit']:
+    if 'high_voltage_limit' in config and voltage_output > config['high_voltage_limit']:
         voltage_level = "high"
         # do we need to adjust the current preset?
-        if hasattr(config, 'high_voltage_current_preset') and current_preset != config['high_voltage_current_preset']:
+        if 'high_voltage_current_preset' in config and current_preset != config['high_voltage_current_preset']:
             logger.info("We are over the high_voltage_limit of %sV - changing current preset from %s to %s" % (config['high_voltage_limit'], current_preset, config['high_voltage_current_preset']))
             pps.current(config['high_voltage_current_preset'])
 
