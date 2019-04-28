@@ -5,6 +5,7 @@ import logging
 import yaml
 import os
 import datetime
+import requests
 
 # define default config
 default_config = {
