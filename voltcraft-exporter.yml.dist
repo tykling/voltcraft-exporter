@@ -1,10 +1,7 @@
 ---
 serialport: "/dev/ttyU1"
-voltage_preset: 10
-current_preset: 10
 low_voltage_limit: 10
-low_voltage_current_preset: 10
 high_voltage_limit: 10
-high_voltage_current_preset: 10
+current_adjustment_amps: 0.1
 #webport: 8000
 

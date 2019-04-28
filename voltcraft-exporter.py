@@ -4,13 +4,13 @@ import time
 import logging
 import yaml
 import os
+import datetime
 
 # define default config
 default_config = {
     'serialport': '/dev/ttyU0',
     'webport': 8000,
-    'voltage_preset': 1,
-    'current_preset': 1,
+    'current_adjustment_amps': 0.1,
 }
 
 # configure logging
@@ -43,18 +43,20 @@ def read_config():
         return ({}, 0)
 
 def process_request():
+    global adjusttime
+
     # do we need to read config again?
     check_config()
 
-    # get model
+    # get model - value is always 1
     model.labels(model=pps._MODEL).set(1)
 
-    # get present output
+    # get present output levels
     voltage_output, current_output, mode = pps.reading()
     v.set(voltage_output)
     c.set(current_output)
 
-    # get charging mode
+    # set charging mode metrics
     if mode == "CC":
         ccm.set(1)
         cvm.set(0)
@@ -72,10 +74,9 @@ def process_request():
     vp.set(voltage_preset)
     cp.set(current_preset)
 
-    # do we need to adjust voltage preset?
-    if voltage_preset != config['voltage_preset']:
-        logger.info("Changing voltage preset from %s to %s" % (voltage_preset, config['voltage_preset']))
-        pps.voltage(config['voltage_preset'])
+    logger.debug("Output voltage is %s V and preset voltage is %s A" % (voltage_output, voltage_preset))
+    logger.debug("Output current is %s V and preset current is %s A" % (current_output, current_preset))
+    logger.debug("Charging mode is %s" % mode)
 
     # init variable
     voltage_level = "normal"
@@ -83,27 +84,33 @@ def process_request():
     # are we below the low_voltage_limit?
     if 'low_voltage_limit' in config and voltage_output < config['low_voltage_limit']:
         voltage_level = "low"
-        if 'low_voltage_current_preset' in config and current_preset != config['low_voltage_current_preset']:
-            logger.info("We are under the low_voltage_limit of %sV - changing current preset from %s to %s" % (config['low_voltage_limit'], current_preset, config['low_voltage_current_preset']))
-            pps.current(config['low_voltage_current_preset'])
+        # has it been more than 24h since the last adjustment?
+        if adjusttime < datetime.datetime.now() - datetime.timedelta(hours=24):
+            logger.info("The 24h average voltage %s is under the low_voltage_limit of %sV - increasing current preset by %sA to %s" % (
+                average_voltage_24h,
+                config['low_voltage_limit'],
+                config['current_adjustment_amps'],
+                current_preset+config['current_adjustment_amps']
+            ))
+            pps.current(current_preset+config['current_adjustment_amps'])
+            adjusttime = datetime.datetime.now()
 
     # are we above the high_voltage_limit?
     if 'high_voltage_limit' in config and voltage_output > config['high_voltage_limit']:
         voltage_level = "high"
-        # do we need to adjust the current preset?
-        if 'high_voltage_current_preset' in config and current_preset != config['high_voltage_current_preset']:
-            logger.info("We are over the high_voltage_limit of %sV - changing current preset from %s to %s" % (config['high_voltage_limit'], current_preset, config['high_voltage_current_preset']))
-            pps.current(config['high_voltage_current_preset'])
+        if adjusttime < datetime.datetime.now() - timedelta(hours=24):
+            logger.info("The 24h average voltage %s is over the high_voltage_limit of %sV - decreasing current preset by %sA to %s" % (
+                average_voltage_24h,
+                config['high_voltage_limit'],
+                config['current_adjustment_amps'],
+                current_preset+config['current_adjustment_amps']
+            ))
+            pps.current(current_preset-config['current_adjustment_amps'])
+            adjusttime = datetime.datetime.now()
 
-    if voltage_level == "normal" and current_preset != config['current_preset']:
-        logger.info("Changing current preset from %s to %s" % (current_preset, config['current_preset']))
-        pps.current(config['current_preset'])
-
-    # a bit of output for the console
-    logger.debug("Output voltage is %s V and preset voltage is %s A" % (voltage_output, voltage_preset))
-    logger.debug("Output current is %s V and preset current is %s A" % (current_output, current_preset))
-    logger.debug("Charging mode is %s" % mode)
     logger.debug("Voltage level is %s" % voltage_level)
+    logger.debug("Latest adjustment was %s" % adjusttime)
+    logger.debug("------------------------")
 
     time.sleep(5)
 
@@ -113,7 +120,11 @@ config = default_config
 config.update(fileconf)
 logger.debug("Running with config %s" % config)
 if edittime:
+    # we have a configfile
     logger.debug("Configfile voltcraft-exporter.yml last updated %s" % edittime)
+
+# make sure we dont adjust until after 24h runtime
+adjusttime = datetime.datetime.now()
 
 # open serial connection
 pps = PPS(
