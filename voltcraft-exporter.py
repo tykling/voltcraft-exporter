@@ -114,7 +114,7 @@ def process_request():
                 average_voltage_24h,
                 config['high_voltage_limit'],
                 config['current_adjustment_amps'],
-                current_preset+config['current_adjustment_amps']
+                current_preset-config['current_adjustment_amps']
             ))
             pps.current(current_preset-config['current_adjustment_amps'])
             adjusttime = datetime.datetime.now()
