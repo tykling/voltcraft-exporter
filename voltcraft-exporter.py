@@ -134,8 +134,8 @@ if edittime:
     # we have a configfile
     logger.debug("Configfile voltcraft-exporter.yml last updated %s" % edittime)
 
-# make sure we dont adjust until after 24h runtime
-adjusttime = datetime.datetime.now()
+# make sure we can adjust right away
+adjusttime = datetime.datetime.now() - datetime.timedelta(hours=24)
 
 # open serial connection
 pps = PPS(
