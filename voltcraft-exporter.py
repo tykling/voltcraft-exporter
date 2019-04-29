@@ -109,7 +109,7 @@ def process_request():
     # are we above the high_voltage_limit?
     if 'high_voltage_limit' in config and average_voltage_24h and average_voltage_24h > config['high_voltage_limit']:
         voltage_level = "high"
-        if adjusttime < datetime.datetime.now() - timedelta(hours=24):
+        if adjusttime < datetime.datetime.now() - datetime.timedelta(hours=24):
             logger.info("The 24h average voltage %s is over the high_voltage_limit of %sV - decreasing current preset by %sA to %s" % (
                 average_voltage_24h,
                 config['high_voltage_limit'],
