@@ -76,7 +76,7 @@ def process_request():
     cp.set(current_preset)
 
     logger.debug("Output voltage is %s V and preset voltage is %s A" % (voltage_output, voltage_preset))
-    logger.debug("Output current is %s V and preset current is %s A" % (current_output, current_preset))
+    logger.debug("Output current is %s A and preset current is %s A" % (current_output, current_preset))
     logger.debug("Charging mode is %s" % mode)
 
     # init variable
