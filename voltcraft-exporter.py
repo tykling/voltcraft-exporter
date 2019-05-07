@@ -97,13 +97,14 @@ def process_request():
         voltage_level = "low"
         # has it been more than 24h since the last adjustment?
         if adjusttime < datetime.datetime.now() - datetime.timedelta(hours=24):
+            new_preset = round(current_preset+config['current_adjustment_amps'], 1)
             logger.info("The 24h average voltage %s is under the low_voltage_limit of %sV - increasing current preset by %sA to %s" % (
                 average_voltage_24h,
                 config['low_voltage_limit'],
                 config['current_adjustment_amps'],
-                current_preset+config['current_adjustment_amps']
+                new_preset
             ))
-            pps.current(current_preset+config['current_adjustment_amps'])
+            pps.current(new_preset)
             adjusttime = datetime.datetime.now()
 
     # are we above the high_voltage_limit?
