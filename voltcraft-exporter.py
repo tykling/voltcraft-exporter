@@ -75,7 +75,7 @@ def process_request():
     vp.set(voltage_preset)
     cp.set(current_preset)
 
-    logger.debug("Output voltage is %s V and preset voltage is %s A" % (voltage_output, voltage_preset))
+    logger.debug("Output voltage is %s V and preset voltage is %s V" % (voltage_output, voltage_preset))
     logger.debug("Output current is %s A and preset current is %s A" % (current_output, current_preset))
     logger.debug("Charging mode is %s" % mode)
 
@@ -111,16 +111,17 @@ def process_request():
     if 'high_voltage_limit' in config and average_voltage_24h and average_voltage_24h > config['high_voltage_limit']:
         voltage_level = "high"
         if adjusttime < datetime.datetime.now() - datetime.timedelta(hours=24):
+            new_preset = round(current_preset-config['current_adjustment_amps'], 1)
             logger.info("The 24h average voltage %s is over the high_voltage_limit of %sV - decreasing current preset by %sA to %s" % (
                 average_voltage_24h,
                 config['high_voltage_limit'],
                 config['current_adjustment_amps'],
-                current_preset-config['current_adjustment_amps']
+                new_preset
             ))
-            pps.current(current_preset-config['current_adjustment_amps'])
+            pps.current(new_preset)
             adjusttime = datetime.datetime.now()
 
-    logger.debug("Voltage level is %s" % voltage_level)
+    logger.debug("24h voltage level is %s" % voltage_level)
     logger.debug("Latest adjustment was %s" % adjusttime)
     logger.debug("------------------------")
 
@@ -144,6 +145,26 @@ pps = PPS(
     reset=False,
     debug=False
 )
+
+
+# do initial adjustment?
+if 'startup_current_preset' in config or 'startup_voltage_preset' in config:
+    voltage_preset, current_preset = pps.preset
+
+if 'startup_current_preset' in config and current_preset != config['startup_current_preset']:
+    logger.info("Current Preset is %s A but startup_current_preset is %s A - adjusting.." % (
+        current_preset,
+        config['startup_current_preset']
+    ))
+    pps.current(config['startup_current_preset'])
+
+if 'startup_voltage_preset' in config and voltage_preset != config['startup_voltage_preset']:
+    logger.info("Voltage Preset is %s V but startup_voltage_preset is %s V - adjusting.." % (
+        voltage_preset,
+        config['startup_voltage_preset']
+    ))
+    pps.voltage(config['startup_voltage_preset'])
+
 
 # define metrics
 model = Gauge('voltcraft_model', 'Voltcraft model', ['model'])
