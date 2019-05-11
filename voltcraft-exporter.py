@@ -96,8 +96,6 @@ def process_request():
     if mode == "CV":
         new_preset = round(current_preset-config['current_adjustment_amps'], 1)
         logger.info("Charging mode is CV, decreasing current preset by %sA to %s" % (
-            average_voltage_24h,
-            config['high_voltage_limit'],
             config['current_adjustment_amps'],
             new_preset
         ))
