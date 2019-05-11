@@ -79,6 +79,19 @@ def process_request():
     logger.debug("Output current is %s A and preset current is %s A" % (current_output, current_preset))
     logger.debug("Charging mode is %s" % mode)
 
+    # init variable
+    voltage_level = "normal"
+
+    # get 24h average
+    average_voltage_24h = None
+    if 'prometheus_24h_average_url' in config:
+        try:
+            r = requests.get(config['prometheus_24h_average_url'])
+            average_voltage_24h = round(float(r.json()['data']['result'][0]['value'][1]), 3)
+        except Exception as E:
+            logger.exception("Got exception while getting 24h average voltage from Prometheus: %s" % E)
+    logger.info("The 24h average voltage from prometheus is %s" % average_voltage_24h)
+
     # do we need to lower current preset due to CV
     if mode == "CV":
         new_preset = round(current_preset-config['current_adjustment_amps'], 1)
@@ -90,19 +103,6 @@ def process_request():
         ))
         pps.current(new_preset)
     else:
-        # init variable
-        voltage_level = "normal"
-
-        # get 24h average
-        average_voltage_24h = None
-        if 'prometheus_24h_average_url' in config:
-            try:
-                r = requests.get(config['prometheus_24h_average_url'])
-                average_voltage_24h = round(float(r.json()['data']['result'][0]['value'][1]), 3)
-            except Exception as E:
-                logger.exception("Got exception while getting 24h average voltage from Prometheus: %s" % E)
-        logger.info("The 24h average voltage from prometheus is %s" % average_voltage_24h)
-
         # are we below the low_voltage_limit?
         if 'low_voltage_limit' in config and average_voltage_24h and average_voltage_24h < config['low_voltage_limit']:
             voltage_level = "low"
