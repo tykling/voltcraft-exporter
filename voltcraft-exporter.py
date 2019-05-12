@@ -82,16 +82,6 @@ def process_request():
     # init variable
     voltage_level = "normal"
 
-    # get 24h average
-    average_voltage_24h = None
-    if 'prometheus_24h_average_url' in config:
-        try:
-            r = requests.get(config['prometheus_24h_average_url'])
-            average_voltage_24h = round(float(r.json()['data']['result'][0]['value'][1]), 3)
-        except Exception as E:
-            logger.exception("Got exception while getting 24h average voltage from Prometheus: %s" % E)
-    logger.info("The 24h average voltage from prometheus is %s" % average_voltage_24h)
-
     # do we need to lower current preset due to CV
     if mode == "CV":
         new_preset = round(current_preset-config['current_adjustment_amps'], 1)
@@ -101,37 +91,30 @@ def process_request():
         ))
         pps.current(new_preset)
     else:
-        # are we below the low_voltage_limit?
-        if 'low_voltage_limit' in config and average_voltage_24h and average_voltage_24h < config['low_voltage_limit']:
-            voltage_level = "low"
-            # has it been more than 24h since the last adjustment?
-            if adjusttime < datetime.datetime.now() - datetime.timedelta(hours=24):
-                new_preset = round(current_preset+config['current_adjustment_amps'], 1)
-                logger.info("The 24h average voltage %s is under the low_voltage_limit of %sV - increasing current preset by %sA to %s" % (
-                    average_voltage_24h,
-                    config['low_voltage_limit'],
-                    config['current_adjustment_amps'],
-                    new_preset
-                ))
-                pps.current(new_preset)
-                adjusttime = datetime.datetime.now()
+        # do we need to adjust current based on high_voltage_limit?
+        if 'high_voltage_limit' in config and voltage_output > config['high_voltage_limit']:
+            new_preset = round(current_preset-config['current_adjustment_amps'], 1)
+            logger.info("Voltage output %s V is over high_voltage_limit %s V, adjusting current_preset by %s A to %s A" % (
+                voltage_output,
+                config['high_voltage_limit'],
+                config['current_adjustment_amps'],
+                new_preset
+            ))
+            pps.current(new_preset)
+            adjusttime = datetime.datetime.now()
+        # do we need to adjust current based on low_voltage_limit?
+        elif 'low_voltage_limit' in config and voltage_output < config['low_voltage_limit']:
+            new_preset = round(current_preset+config['current_adjustment_amps'], 1)
+            logger.info("Voltage output %s V is under low_voltage_limit %s V, adjusting current_preset by %s A to %s A" % (
+                voltage_output,
+                config['low_voltage_limit'],
+                config['current_adjustment_amps'],
+                new_preset
+            ))
+            pps.current(new_preset)
+            adjusttime = datetime.datetime.now()
 
-        # are we above the high_voltage_limit?
-        if 'high_voltage_limit' in config and average_voltage_24h and average_voltage_24h > config['high_voltage_limit']:
-            voltage_level = "high"
-            if adjusttime < datetime.datetime.now() - datetime.timedelta(hours=24):
-                new_preset = round(current_preset-config['current_adjustment_amps'], 1)
-                logger.info("The 24h average voltage %s is over the high_voltage_limit of %sV - decreasing current preset by %sA to %s" % (
-                    average_voltage_24h,
-                    config['high_voltage_limit'],
-                    config['current_adjustment_amps'],
-                    new_preset
-                ))
-                pps.current(new_preset)
-                adjusttime = datetime.datetime.now()
-
-    logger.debug("24h voltage level is %s" % voltage_level)
-    logger.debug("Latest adjustment was %s" % adjusttime)
+    logger.debug("Latest current adjustment was %s" % adjusttime)
     logger.debug("------------------------")
 
     time.sleep(5)
