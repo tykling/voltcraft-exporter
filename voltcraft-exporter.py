@@ -90,6 +90,7 @@ def process_request():
             new_preset
         ))
         pps.current(new_preset)
+        adjusttime = datetime.datetime.now()
     else:
         # do we need to adjust current based on high_voltage_limit?
         if 'high_voltage_limit' in config and voltage_output > config['high_voltage_limit']:
@@ -128,8 +129,7 @@ if edittime:
     # we have a configfile
     logger.debug("Configfile voltcraft-exporter.yml last updated %s" % edittime)
 
-# make sure we can adjust right away
-adjusttime = datetime.datetime.now() - datetime.timedelta(hours=24)
+adjusttime = datetime.datetime.now()
 
 # open serial connection
 pps = PPS(
