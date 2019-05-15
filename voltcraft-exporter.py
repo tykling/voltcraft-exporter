@@ -12,6 +12,9 @@ default_config = {
     'serialport': '/dev/ttyU0',
     'webport': 8000,
     'current_adjustment_amps': 0.1,
+    'prometheus_adjustments': [],
+    'low_voltage_limit': None,
+    'high_voltage_limit': None,
 }
 
 # configure logging
@@ -44,6 +47,7 @@ def read_config():
         return ({}, 0)
 
 def process_request():
+    logger.debug("------------------------")
     global adjusttime
 
     # do we need to read config again?
@@ -78,9 +82,7 @@ def process_request():
     logger.debug("Output voltage is %s V and preset voltage is %s V" % (voltage_output, voltage_preset))
     logger.debug("Output current is %s A and preset current is %s A" % (current_output, current_preset))
     logger.debug("Charging mode is %s" % mode)
-
-    # init variable
-    voltage_level = "normal"
+    logger.debug("Latest current adjustment was %s" % adjusttime)
 
     # do we need to lower current preset due to CV
     if mode == "CV":
@@ -91,33 +93,77 @@ def process_request():
         ))
         pps.current(new_preset)
         adjusttime = datetime.datetime.now()
-    else:
-        # do we need to adjust current based on high_voltage_limit?
-        if 'high_voltage_limit' in config and voltage_output > config['high_voltage_limit']:
-            new_preset = round(current_preset-config['current_adjustment_amps'], 1)
-            logger.info("Voltage output %s V is over high_voltage_limit %s V, adjusting current_preset by %s A to %s A" % (
-                voltage_output,
-                config['high_voltage_limit'],
-                config['current_adjustment_amps'],
-                new_preset
-            ))
-            pps.current(new_preset)
-            adjusttime = datetime.datetime.now()
-        # do we need to adjust current based on low_voltage_limit?
-        elif 'low_voltage_limit' in config and voltage_output < config['low_voltage_limit']:
-            new_preset = round(current_preset+config['current_adjustment_amps'], 1)
-            logger.info("Voltage output %s V is under low_voltage_limit %s V, adjusting current_preset by %s A to %s A" % (
-                voltage_output,
-                config['low_voltage_limit'],
-                config['current_adjustment_amps'],
-                new_preset
-            ))
-            pps.current(new_preset)
-            adjusttime = datetime.datetime.now()
+        return
 
-    logger.debug("Latest current adjustment was %s" % adjusttime)
-    logger.debug("------------------------")
+    # check if we need to do any prometheus adjustments
+    if config['prometheus_adjustments'] and adjusttime < datetime.datetime.now() - timedelta(hours=24):
+        for pa in config['prometheus_adjustments']:
+            # get value from prometheus
+            try:
+                r = requests.get(pa['url'])
+                result = round(float(r.json()['data']['result'][0]['value'][1]), 3)
+                logger.debug("Prometheus url %s returned %s" % (
+                    pa['url'],
+                    result,
+                ))
+            except Exception as E:
+                logger.exception("Got exception while getting data from Prometheus url %s: %s" % (pa['url'], E))
+                continue
 
+            if 'gt' in pa and result > pa['gt']:
+                # we are over the limit, do the adjustment
+                new_preset = round(current_preset+pa['adjustment'], 1)
+                logger.info("Prometheus url %s returned %s which is more than %s, adjusting current_preset by %s A to %s A" % (
+                    pa['url'],
+                    result,
+                    pa['gt'],
+                    pa['adjustment'],
+                    new_preset,
+                ))
+                pps.current(new_preset)
+                adjusttime = datetime.datetime.now()
+                return
+
+            if 'lt' in pa and result < pa['lt']:
+                # we are under the limit, do the adjustment
+                logger.info("Prometheus url %s returned %s which is less than %s, adjusting current_preset by %s A to %s A" % (
+                    pa['url'],
+                    result,
+                    pa['lt'],
+                    pa['adjustment'],
+                    new_preset,
+                ))
+                pps.current(new_preset)
+                adjusttime = datetime.datetime.now()
+                return
+
+    # do we need to adjust current based on a static high_voltage_limit?
+    if config['high_voltage_limit'] and voltage_output > config['high_voltage_limit']:
+        new_preset = round(current_preset-config['current_adjustment_amps'], 1)
+        logger.info("Voltage output %s V is over high_voltage_limit %s V, adjusting current_preset by %s A to %s A" % (
+            voltage_output,
+            config['high_voltage_limit'],
+            config['current_adjustment_amps'],
+            new_preset
+        ))
+        pps.current(new_preset)
+        adjusttime = datetime.datetime.now()
+        return
+
+    # do we need to adjust current based on a static low_voltage_limit?
+    if config['low_voltage_limit'] and voltage_output < config['low_voltage_limit']:
+        new_preset = round(current_preset+config['current_adjustment_amps'], 1)
+        logger.info("Voltage output %s V is under low_voltage_limit %s V, adjusting current_preset by %s A to %s A" % (
+            voltage_output,
+            config['low_voltage_limit'],
+            config['current_adjustment_amps'],
+            new_preset
+        ))
+        pps.current(new_preset)
+        adjusttime = datetime.datetime.now()
+        return
+
+    # sleep a bit before returning
     time.sleep(5)
 
 # read config file
