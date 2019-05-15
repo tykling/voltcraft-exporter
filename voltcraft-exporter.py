@@ -12,7 +12,7 @@ default_config = {
     'serialport': '/dev/ttyU0',
     'webport': 8000,
     'current_adjustment_amps': 0.1,
-    'prometheus_adjustments': [],
+    'prometheus_current_adjustments': [],
     'low_voltage_limit': None,
     'high_voltage_limit': None,
 }
@@ -96,8 +96,8 @@ def process_request():
         return
 
     # check if we need to do any prometheus adjustments (only once every 24h)
-    if config['prometheus_adjustments'] and adjusttime < datetime.datetime.now() - datetime.timedelta(hours=24):
-        for pa in config['prometheus_adjustments']:
+    if config['prometheus_current_adjustments'] and adjusttime < datetime.datetime.now() - datetime.timedelta(hours=24):
+        for pa in config['prometheus_current_adjustments']:
             # get value from prometheus
             try:
                 r = requests.get(pa['url'])
