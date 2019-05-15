@@ -96,7 +96,7 @@ def process_request():
         return
 
     # check if we need to do any prometheus adjustments (only once every 24h)
-    if config['prometheus_adjustments'] and adjusttime < datetime.datetime.now() - timedelta(hours=24):
+    if config['prometheus_adjustments'] and adjusttime < datetime.datetime.now() - datetime.timedelta(hours=24):
         for pa in config['prometheus_adjustments']:
             # get value from prometheus
             try:
@@ -176,7 +176,7 @@ if edittime:
     logger.debug("Configfile voltcraft-exporter.yml last updated %s" % edittime)
 
 # make sure we can do 24h adjustment right after startup
-adjusttime = datetime.datetime.now() - timedelta(hours=24)
+adjusttime = datetime.datetime.now() - datetime.timedelta(hours=24)
 
 # open serial connection
 pps = PPS(
