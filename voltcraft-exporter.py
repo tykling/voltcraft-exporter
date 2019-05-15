@@ -112,12 +112,12 @@ def process_request():
 
             if 'gt' in pa and result > pa['gt']:
                 # we are over the limit, do the adjustment
-                new_preset = round(current_preset+pa['adjustment'], 1)
+                new_preset = round(current_preset+pa['current_adjustment'], 1)
                 logger.info("Prometheus url %s returned %s which is more than %s, adjusting current_preset by %s A to %s A" % (
                     pa['url'],
                     result,
                     pa['gt'],
-                    pa['adjustment'],
+                    pa['current_adjustment'],
                     new_preset,
                 ))
                 pps.current(new_preset)
@@ -126,11 +126,12 @@ def process_request():
 
             if 'lt' in pa and result < pa['lt']:
                 # we are under the limit, do the adjustment
+                new_preset = round(current_preset+pa['current_adjustment'], 1)
                 logger.info("Prometheus url %s returned %s which is less than %s, adjusting current_preset by %s A to %s A" % (
                     pa['url'],
                     result,
                     pa['lt'],
-                    pa['adjustment'],
+                    pa['current_adjustment'],
                     new_preset,
                 ))
                 pps.current(new_preset)
