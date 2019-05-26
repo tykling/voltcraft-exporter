@@ -114,22 +114,38 @@ def process_request():
 
         if 'voltage_lt' in adjustment['conditions']:
             if not voltage_output < adjustment['conditions']['voltage_lt']:
-                logger.debug("adjustment %s: voltage_lt condition not met: voltage_output is %s" % (name, voltage_output))
+                logger.debug("adjustment %s: voltage_lt condition not met: voltage_output is %s which is not < %s" % (
+                    name,
+                    voltage_output,
+                    adjustment['conditions']['voltage_lt']
+                ))
                 continue
 
         if 'voltage_gt' in adjustment['conditions']:
             if not voltage_output > adjustment['conditions']['voltage_gt']:
-                logger.debug("adjustment %s: voltage_gt condition not met: voltage_output is %s" % (name, voltage_output))
+                logger.debug("adjustment %s: voltage_gt condition not met: voltage_output is %s which is not > %s" % (
+                    name,
+                    voltage_output,
+                    adjustment['conditions']['voltage_gt']
+                ))
                 continue
 
         if 'current_lt' in adjustment['conditions']:
             if not current_output < adjustment['conditions']['current_lt']:
-                logger.debug("adjustment %s: current_lt condition not met: current_output is %s" % (name, current_output))
+                logger.debug("adjustment %s: current_lt condition not met: current_output is %s which is not < %s" % (
+                    name,
+                    current_output,
+                    adjustment['conditions']['current_lt']
+                ))
                 continue
 
         if 'current_gt' in adjustment['conditions']:
             if not current_output > adjustment['conditions']['current_gt']:
-                logger.debug("adjustment %s: current_gt condition not met: current_output is %s" % (name, current_output))
+                logger.debug("adjustment %s: current_gt condition not met: current_output is %s which is not > %s" % (
+                    name,
+                    current_output,
+                    adjustment['conditions']['current_gt'],
+                ))
                 continue
 
         if 'prometheus' in adjustment['conditions']:
@@ -151,10 +167,6 @@ def process_request():
                 try:
                     r = requests.get(promadj['url'])
                     result = round(float(r.json()['data']['result'][0]['value'][1]), 3)
-                    logger.debug("Prometheus url %s returned %s" % (
-                        promadj['url'],
-                        result,
-                    ))
                 except Exception as E:
                     logger.exception("Got exception while getting data from Prometheus url %s: %s" % (promadj['url'], E))
                     continue
