@@ -140,7 +140,7 @@ def process_request():
                     continue
 
                 # do we have anything to compare with?
-                if not 'lt' in promadj or not 'eq' in promadj or not 'gt' in promadj:
+                if not 'lt' in promadj and not 'eq' in promadj and not 'gt' in promadj:
                     logger.error("No limits found in prometheus adjustment for url %s, skipping" % promadj['url'])
                     continue
 
