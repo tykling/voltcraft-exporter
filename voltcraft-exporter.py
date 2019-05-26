@@ -102,10 +102,10 @@ def process_request():
             nextadj = adjusttimes[name] + datetime.timedelta(seconds=adjustment['interval'])
             if not nextadj < datetime.datetime.now():
                 logger.debug("adjustment %s: latest adjustment was %s, next possible adjustment is %s" % (
+                    name,
                     adjusttimes[name],
                     nextadj,
                 ))
-
 
         if 'mode' in adjustment['conditions']:
             if not adjustment['conditions']['mode'] == mode:
