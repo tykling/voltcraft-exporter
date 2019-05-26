@@ -106,6 +106,7 @@ def process_request():
                     adjusttimes[name],
                     nextadj,
                 ))
+                continue
 
         if 'mode' in adjustment['conditions']:
             if not adjustment['conditions']['mode'] == mode:
