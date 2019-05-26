@@ -45,7 +45,6 @@ def read_config():
         return ({}, 0)
 
 def process_request():
-    logger.debug("------------------------")
     global adjusttimes
 
     # do we need to read config again?
@@ -80,6 +79,8 @@ def process_request():
     logger.debug("Output voltage is %s V and preset voltage is %s V" % (voltage_output, voltage_preset))
     logger.debug("Output current is %s A and preset current is %s A" % (current_output, current_preset))
     logger.debug("Charging mode is %s" % mode)
+    if adjusttimes:
+        logger.debug("Latest adjusttimes are: %s" % adjusttimes)
 
     for name, adjustment in config['adjustments']:
         # first a few sanity checks
@@ -205,6 +206,7 @@ def process_request():
         adjusttimes[name] = datetime.datetime.now()
 
     # sleep a bit before returning
+    logger.debug("------------------------")
     time.sleep(5)
 
 # read config file
