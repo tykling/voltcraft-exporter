@@ -82,7 +82,7 @@ def process_request():
     if adjusttimes:
         logger.debug("Latest adjusttimes are: %s" % adjusttimes)
 
-    for name, adjustment in config['adjustments']:
+    for name, adjustment in config['adjustments'].items():
         # first a few sanity checks
         if not 'conditions' in adjustment:
             logger.error("adjustment %s: no conditions found, skipping" % name)
@@ -188,6 +188,7 @@ def process_request():
             new_preset = round(current_preset-adjustment['adjustments']['current'], 1)
             pps.current(new_preset)
             logger.info("adjustment %s: all conditions met, adjusting current_preset from %s by %s to %s" % (
+                name,
                 current_preset,
                 adjustment['adjustments']['current'],
                 new_preset,
@@ -197,6 +198,7 @@ def process_request():
             new_preset = round(voltage_preset-adjustment['adjustments']['voltage'], 1)
             pps.voltage(new_preset)
             logger.info("adjustment %s: all conditions met, adjusting voltage_preset from %s by %s to %s" % (
+                name,
                 voltage_preset,
                 adjustment['adjustments']['voltage'],
                 new_preset,
