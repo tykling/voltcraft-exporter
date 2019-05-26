@@ -134,9 +134,12 @@ def process_request():
 
         if 'prometheus' in adjustment['conditions']:
             for promadj in adjustment['conditions']['prometheus']:
+                # the initial result of the prometheus conditions is False
+                promok = False
+
                 # do we have a URL
                 if not 'url' in promadj:
-                    logger.error("No prometheus url found, skipping this adjustment")
+                    logger.error("No prometheus url found, skipping this prometheus condition")
                     continue
 
                 # do we have anything to compare with?
@@ -182,6 +185,14 @@ def process_request():
                         promadj['gt']
                     ))
                     continue
+
+                # if we got this far this prometheus condition was met,
+                # and if it was the last prometheus condition then True will be the final result
+                promok = True
+
+        if 'prometheus' in adjustment['conditions'] and not promok:
+            # one or more prometheus conditions were checked but not met
+            continue
 
         # if we got this far all conditions have been checked and met, do the adjustment(s)
         if 'current' in adjustment['adjustments']:
