@@ -12,9 +12,7 @@ default_config = {
     'serialport': '/dev/ttyU0',
     'webport': 8000,
     'current_adjustment_amps': 0.1,
-    'prometheus_current_adjustments': [],
-    'low_voltage_limit': None,
-    'high_voltage_limit': None,
+    'adjustments': {},
 }
 
 # configure logging
@@ -48,7 +46,7 @@ def read_config():
 
 def process_request():
     logger.debug("------------------------")
-    global adjusttime
+    global adjusttimes
 
     # do we need to read config again?
     check_config()
@@ -82,87 +80,129 @@ def process_request():
     logger.debug("Output voltage is %s V and preset voltage is %s V" % (voltage_output, voltage_preset))
     logger.debug("Output current is %s A and preset current is %s A" % (current_output, current_preset))
     logger.debug("Charging mode is %s" % mode)
-    logger.debug("Latest current adjustment was %s" % adjusttime)
 
-    # do we need to lower current preset due to CV
-    if mode == "CV":
-        new_preset = round(current_preset-config['current_adjustment_amps'], 1)
-        logger.info("Charging mode is CV, decreasing current preset by %sA to %s" % (
-            config['current_adjustment_amps'],
-            new_preset
-        ))
-        pps.current(new_preset)
-        adjusttime = datetime.datetime.now()
-        return
+    for name, adjustment in config['adjustments']:
+        # first a few sanity checks
+        if not 'conditions' in adjustment:
+            logger.error("adjustment %s: no conditions found, skipping" % name)
+            continue
 
-    # check if we need to do any prometheus adjustments (only once every 24h)
-    if config['prometheus_current_adjustments'] and adjusttime < datetime.datetime.now() - datetime.timedelta(hours=24):
-        for pa in config['prometheus_current_adjustments']:
-            # get value from prometheus
-            try:
-                r = requests.get(pa['url'])
-                result = round(float(r.json()['data']['result'][0]['value'][1]), 3)
-                logger.debug("Prometheus url %s returned %s" % (
-                    pa['url'],
-                    result,
+        if not 'adjustments' in adjustment:
+            logger.error("adjustment %s: no adjustments found, skipping" % name)
+            continue
+
+        if not 'interval' in adjustment:
+            logger.error("adjustment %s: no interval found, skipping" % name)
+            continue
+
+        # check interval
+        if name in adjusttimes:
+            # this adjustment has been done before, check the interval
+            nextadj = adjusttimes[name] + datetime.timedelta(seconds=adjustment['interval'])
+            if not nextadj < datetime.datetime.now():
+                logger.debug("adjustment %s: latest adjustment was %s, next possible adjustment is %s" % (
+                    adjusttimes[name],
+                    nextadj,
                 ))
-            except Exception as E:
-                logger.exception("Got exception while getting data from Prometheus url %s: %s" % (pa['url'], E))
+
+
+        if 'mode' in adjustment['conditions']:
+            if not adjustment['conditions']['mode'] == mode:
+                logger.debug("adjustment %s: mode condition not met: mode is %s" % (name, mode))
                 continue
 
-            if 'gt' in pa and result > pa['gt']:
-                # we are over the limit, do the adjustment
-                new_preset = round(current_preset+pa['current_adjustment'], 1)
-                logger.info("Prometheus url %s returned %s which is more than %s, adjusting current_preset by %s A to %s A" % (
-                    pa['url'],
-                    result,
-                    pa['gt'],
-                    pa['current_adjustment'],
-                    new_preset,
-                ))
-                pps.current(new_preset)
-                adjusttime = datetime.datetime.now()
-                return
+        if 'voltage_lt' in adjustment['conditions']:
+            if not voltage_output < adjustment['conditions']['voltage_lt']:
+                logger.debug("adjustment %s: voltage_lt condition not met: voltage_output is %s" % (name, voltage_output))
+                continue
 
-            if 'lt' in pa and result < pa['lt']:
-                # we are under the limit, do the adjustment
-                new_preset = round(current_preset+pa['current_adjustment'], 1)
-                logger.info("Prometheus url %s returned %s which is less than %s, adjusting current_preset by %s A to %s A" % (
-                    pa['url'],
-                    result,
-                    pa['lt'],
-                    pa['current_adjustment'],
-                    new_preset,
-                ))
-                pps.current(new_preset)
-                adjusttime = datetime.datetime.now()
-                return
+        if 'voltage_gt' in adjustment['conditions']:
+            if not voltage_output > adjustment['conditions']['voltage_gt']:
+                logger.debug("adjustment %s: voltage_gt condition not met: voltage_output is %s" % (name, voltage_output))
+                continue
 
-    # do we need to adjust current based on a static high_voltage_limit?
-    if config['high_voltage_limit'] and voltage_output > config['high_voltage_limit']:
-        new_preset = round(current_preset-config['current_adjustment_amps'], 1)
-        logger.info("Voltage output %s V is over high_voltage_limit %s V, adjusting current_preset by %s A to %s A" % (
-            voltage_output,
-            config['high_voltage_limit'],
-            config['current_adjustment_amps'],
-            new_preset
-        ))
-        pps.current(new_preset)
-        adjusttime = datetime.datetime.now()
-        return
+        if 'current_lt' in adjustment['conditions']:
+            if not current_output < adjustment['conditions']['current_lt']:
+                logger.debug("adjustment %s: current_lt condition not met: current_output is %s" % (name, current_output))
+                continue
 
-    # do we need to adjust current based on a static low_voltage_limit?
-    if config['low_voltage_limit'] and voltage_output < config['low_voltage_limit']:
-        new_preset = round(current_preset+config['current_adjustment_amps'], 1)
-        logger.info("Voltage output %s V is under low_voltage_limit %s V, adjusting current_preset by %s A to %s A" % (
-            voltage_output,
-            config['low_voltage_limit'],
-            config['current_adjustment_amps'],
-            new_preset
-        ))
-        pps.current(new_preset)
-        adjusttime = datetime.datetime.now()
-        return
+        if 'current_gt' in adjustment['conditions']:
+            if not current_output > adjustment['conditions']['current_gt']:
+                logger.debug("adjustment %s: current_gt condition not met: current_output is %s" % (name, current_output))
+                continue
+
+        if 'prometheus' in adjustment['conditions']:
+            for promadj in adjustment['conditions']['prometheus']:
+                # do we have a URL
+                if not 'url' in promadj:
+                    logger.error("No prometheus url found, skipping this adjustment")
+                    continue
+
+                # do we have anything to compare with?
+                if not 'lt' in promadj or not 'eq' in promadj or not 'gt' in promadj:
+                    logger.error("No limits found in prometheus adjustment for url %s, skipping" % promadj['url'])
+                    continue
+
+                # get data from prometheus
+                try:
+                    r = requests.get(promadj['url'])
+                    result = round(float(r.json()['data']['result'][0]['value'][1]), 3)
+                    logger.debug("Prometheus url %s returned %s" % (
+                        promadj['url'],
+                        result,
+                    ))
+                except Exception as E:
+                    logger.exception("Got exception while getting data from Prometheus url %s: %s" % (promadj['url'], E))
+                    continue
+
+                if 'lt' in promadj and not result < promadj['lt']:
+                    logger.debug("adjustment %s: prometheus condition not met: url %s returned %s which is not < %s" % (
+                        name,
+                        promadj['url'],
+                        result,
+                        promadj['lt']
+                    ))
+                    continue
+
+                if 'eq' in promadj and not result == promadj['eq']:
+                    logger.debug("adjustment %s: prometheus condition not met: url %s returned %s which is not == %s" % (
+                        name,
+                        promadj['url'],
+                        result,
+                        promadj['eq']
+                    ))
+                    continue
+
+                if 'gt' in promadj and not result < promadj['gt']:
+                    logger.debug("adjustment %s: prometheus condition not met: url %s returned %s which is not > %s" % (
+                        name,
+                        promadj['url'],
+                        result,
+                        promadj['gt']
+                    ))
+                    continue
+
+        # if we got this far all conditions have been checked and met, do the adjustment(s)
+        if 'current' in adjustment['adjustments']:
+            new_preset = round(current_preset-adjustment['adjustments']['current'], 1)
+            pps.current(new_preset)
+            logger.info("adjustment %s: all conditions met, adjusting current_preset from %s by %s to %s" % (
+                current_preset,
+                adjustment['adjustments']['current'],
+                new_preset,
+            ))
+
+        if 'voltage' in adjustment['adjustments']:
+            new_preset = round(voltage_preset-adjustment['adjustments']['voltage'], 1)
+            pps.voltage(new_preset)
+            logger.info("adjustment %s: all conditions met, adjusting voltage_preset from %s by %s to %s" % (
+                voltage_preset,
+                adjustment['adjustments']['voltage'],
+                new_preset,
+            ))
+
+        # record the time of adjustment
+        adjusttimes[name] = datetime.datetime.now()
 
     # sleep a bit before returning
     time.sleep(5)
@@ -176,8 +216,8 @@ if edittime:
     # we have a configfile
     logger.debug("Configfile voltcraft-exporter.yml last updated %s" % edittime)
 
-# make sure we can do 24h adjustment right after startup
-adjusttime = datetime.datetime.now() - datetime.timedelta(hours=24)
+# init empty dict
+adjusttimes = {}
 
 # open serial connection
 pps = PPS(
@@ -185,7 +225,6 @@ pps = PPS(
     reset=False,
     debug=False
 )
-
 
 # do initial adjustment?
 if 'startup_current_preset' in config or 'startup_voltage_preset' in config:

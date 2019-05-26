@@ -2,8 +2,24 @@
 serialport: "/dev/ttyU1"
 startup_current_preset: 10
 startup_voltage_preset: 10
-low_voltage_limit: 10
-high_voltage_limit: 10
-current_adjustment_amps: 0.1
-#webport: 8000
+webport: 8000
+adjustments:
+  myadjustment:
+    description: "example of adjustment with every possible option"
+    conditions:
+      mode: "CV"
+      mode: "CC"
+      voltage_lt: 10
+      voltage_gt: 8
+      current_lt: 10
+      current_gt: 8
+      prometheus:
+        - url: 'https://prometheus.example.com/api/v1/query?query=avg_over_time(some_metric{instance="192.0.2.20:8000"}[1h])'
+          lt: 10
+          eq: 9
+          gt: 8
+    adjustments:
+      current: 1
+      voltage: -1
+    interval: 86400
 
