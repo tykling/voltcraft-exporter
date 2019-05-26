@@ -209,7 +209,7 @@ def process_request():
 
         # if we got this far all conditions have been checked and met, do the adjustment(s)
         if 'current' in adjustment['adjustments']:
-            new_preset = round(current_preset-adjustment['adjustments']['current'], 1)
+            new_preset = round(current_preset+adjustment['adjustments']['current'], 1)
             pps.current(new_preset)
             logger.info("adjustment %s: all conditions met, adjusting current_preset from %s by %s to %s" % (
                 name,
@@ -219,7 +219,7 @@ def process_request():
             ))
 
         if 'voltage' in adjustment['adjustments']:
-            new_preset = round(voltage_preset-adjustment['adjustments']['voltage'], 1)
+            new_preset = round(voltage_preset+adjustment['adjustments']['voltage'], 1)
             pps.voltage(new_preset)
             logger.info("adjustment %s: all conditions met, adjusting voltage_preset from %s by %s to %s" % (
                 name,
