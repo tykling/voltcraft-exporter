@@ -22,7 +22,7 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S %z',
 )
 logger = logging.getLogger("voltcraft-exporter.%s" % __name__)
-
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 def check_config():
     global edittime
