@@ -6,6 +6,7 @@ import yaml
 import os
 import datetime
 import requests
+import serial
 
 # define default config
 default_config = {
@@ -54,7 +55,12 @@ def process_request():
     model.labels(model=pps._MODEL).set(1)
 
     # get present output levels
-    voltage_output, current_output, mode = pps.reading()
+    try:
+        voltage_output, current_output, mode = pps.reading()
+    except serial.SerialTimeoutException as E:
+        logger.error("Exception %s while speaking to Voltcraft meter, bailing out...")
+        return
+
     v.set(voltage_output)
     c.set(current_output)
 
